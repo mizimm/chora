@@ -1,0 +1,7 @@
+mkdir build
+cd build
+cmake -DCMAKE_CXX_FLAGS=-D__CUDA_ARCH_LIST__=800 -DCMAKE_CUDA_ARCHITECTURES=80 ..
+
+# next:
+#  cd build
+#  make -j32
