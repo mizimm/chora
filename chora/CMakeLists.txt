@@ -1,91 +1,39 @@
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-include(setup_GTest)
-include(ryoanji_add_test)
+cmake_minimum_required(VERSION 3.22)
 
-set(RYOANJI_TEST_INCLUDE_DIRS ${CSTONE_DIR} ${CSTONE_TEST_DIR} ${PROJECT_SOURCE_DIR}/src)
+project(chora CXX CUDA)
+set(CMAKE_CXX_STANDARD 20)
 
-if (CMAKE_HIP_COMPILER)
-    set_source_files_properties(demo.cu PROPERTIES LANGUAGE HIP)
-endif()
+#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
+#set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG")
 
-if (CMAKE_CUDA_COMPILER OR CMAKE_HIP_COMPILER)
-    add_executable(ryoanji_demo demo.cu)
-    target_link_libraries(ryoanji_demo PUBLIC cstone_tree)
-    set_target_properties(ryoanji_demo PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    # set_source_files_properties(demo.cu PROPERTIES COMPILE_FLAGS "-Xptxas -v")
-    install(TARGETS ryoanji_demo RUNTIME DESTINATION ${CMAKE_INSTALL_SBINDIR}/ryoanji/ryoanji_demo)
-endif ()
+#
+# CHORA
+#
 
-# multi-rank demonstrator
-if (CMAKE_CUDA_COMPILER OR CMAKE_HIP_COMPILER)
-    set(testname ryoanji_demo_mpi)
-#    set(CMAKE_CUDA_ARCHITECTURES 80)
-    add_executable(${testname} demo_mpi.cpp util.cu ParticleList.cu ParticleAdvancer.cu Constants.cpp Maxwellian.cpp ErfInv.cpp Random.cpp)
-    target_include_directories(${testname} PRIVATE ${RYOANJI_TEST_INCLUDE_DIRS})
-    set_target_properties(ryoanji_demo_mpi PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+#set(RYOANJI_TEST ${PROJECT_SOURCE_DIR}/ryoanji/test)
+#set(CSTONE_TEST ${PROJECT_SOURCE_DIR}/cstone/test)
+set(CHORA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# openmp for direct CPU solve (zimmemi1)
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(${testname} PUBLIC OpenMP::OpenMP_CXX)
-endif()
+find_package(MPI REQUIRED)
+find_package(CUDAToolkit REQUIRED)
+find_package(OpenMP) # openmp for direct CPU solve (zimmemi1)
 
-    target_link_libraries(${testname} PRIVATE cstone_gpu ryoanji)
+set(CSTONE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../cstone/include)
+set(RYOANJI_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../ryoanji/src)
 
-    if (GPU_DIRECT)
-        target_compile_definitions(${testname} PRIVATE USE_GPU_DIRECT)
-    endif ()
+include_directories(${CSTONE_INCLUDE} ${RYOANJI_INCLUDE} ${CUDAToolkit_INCLUDE_DIRS})
 
-    if (CMAKE_HIP_COMPILER)
-        target_link_libraries(${testname} PRIVATE hip::host)
-        target_compile_definitions(${testname} PRIVATE THRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_HIP)
-        set_target_properties(${testname} PROPERTIES LINKER_LANGUAGE CXX)
-    endif ()
+add_executable(chora-test
+	${CHORA_DIR}/chora-test.cpp
+	${CHORA_DIR}/Constants.cpp
+	${CHORA_DIR}/ErfInv.cpp
+	${CHORA_DIR}/Maxwellian.cpp
+	${CHORA_DIR}/Random.cpp
+	${CHORA_DIR}/ParticleAdvancer.cu
+	${CHORA_DIR}/ParticleList.cu
+	${CHORA_DIR}/util.cu
+)
+set_target_properties(chora-test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-    if (CMAKE_CUDA_COMPILER)
-        target_link_libraries(${testname} PRIVATE CUDA::cudart ${CUDA_LIBRARIES})
-    endif ()
-    target_compile_options(${testname} PRIVATE -Wno-unknown-pragmas)
-    install(TARGETS ${testname} RUNTIME DESTINATION ${CMAKE_INSTALL_SBINDIR}/ryoanji/)
-    unset(testname)
-endif ()
-
-# CPU unit test suite
-set(testname ryoanji_cpu_unit_tests)
-add_executable(${testname}
-        nbody/cartesian_qpole.cpp
-        nbody/kernel.cpp
-        nbody/traversal_cpu.cpp
-        nbody/ewald_cpu.cpp
-        test_main.cpp)
-
-target_compile_options(${testname} PRIVATE -Wall -Wextra -Wno-unknown-pragmas)
-target_include_directories(${testname} PRIVATE ${RYOANJI_TEST_INCLUDE_DIRS})
-target_link_libraries(${testname} PRIVATE GTest::gtest_main OpenMP::OpenMP_CXX)
-target_link_libraries(${testname} PRIVATE GTest::gmock_main OpenMP::OpenMP_CXX)
-add_test(NAME ${testname} COMMAND ryoanji_cpu_unit_tests)
-install(TARGETS ${testname} RUNTIME DESTINATION ${CMAKE_INSTALL_SBINDIR}/ryoanji/cpu_unit_tests)
-
-if (CMAKE_HIP_COMPILER)
-    set_source_files_properties(nbody/direct.cu nbody/warpscan.cu PROPERTIES LANGUAGE HIP)
-endif()
-
-# GPU unit test suite
-if (CMAKE_CUDA_COMPILER OR CMAKE_HIP_COMPILER)
-    set(testname ryoanji_unit_tests)
-    add_executable(${testname}
-            nbody/ewald.cu
-            nbody/direct.cu
-            test_main.cpp)
-    target_include_directories(${testname} PRIVATE ${PROJECT_SOURCE_DIR}/src)
-    target_link_libraries(${testname} PUBLIC OpenMP::OpenMP_CXX cstone_tree ryoanji GTest::gtest_main)
-    if (CMAKE_HIP_COMPILER)
-        set_target_properties(${testname} PROPERTIES LINKER_LANGUAGE CXX)
-    endif ()
-
-    add_test(NAME ${testname} COMMAND ${testname})
-    install(TARGETS ${testname} RUNTIME DESTINATION ${CMAKE_INSTALL_SBINDIR}/ryoanji/unit_tests)
-endif ()
-
-add_subdirectory(interface)
+target_link_libraries(chora-test PUBLIC ryoanji cstone MPI::MPI_CXX OpenMP::OpenMP_CXX)
 

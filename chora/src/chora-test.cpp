@@ -81,7 +81,7 @@
 	);
 }*/
 
-void solveMultipole(chora::ParticleList* plist)//, scalar G = 1.0, scalar theta = 0.5)
+void solveMultipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar theta = 0.5)
 {
 	std::array<scalar, 6> bounds = plist->getBounds();
 
@@ -211,7 +211,7 @@ void solveMultipole(chora::ParticleList* plist)//, scalar G = 1.0, scalar theta 
 	plist->correctField();
 }
 
-/*void solveDirect(chora::ParticleList* plist)
+void solveDirectGpu(chora::ParticleList* plist)
 {
 	std::array<scalar, 6> bounds = plist->getBounds();
 	cstone::Box<scalar> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
@@ -239,7 +239,7 @@ void solveMultipole(chora::ParticleList* plist)//, scalar G = 1.0, scalar theta 
 	thrust::copy(d_ez.begin(), d_ez.end(), plist->d_ez.begin());
 
 	plist->correctField();
-}*/
+}
 
 // chora namespace contents are Copyright Mike Zimmerman JHUAPL 2024
 
@@ -263,18 +263,18 @@ void solveDirectCpu(chora::ParticleList* plist, scalar dmin)
 	thrust::fill(h_ey.begin(), h_ey.end(), 0);
 	thrust::fill(h_ez.begin(), h_ez.end(), 0);
 
-	int cnt = 0;
+//	int cnt = 0;
 
 	#pragma omp parallel for shared(plist, h_x, h_y, h_z, h_q, h_ex, h_ey, h_ez)
 	for (int i = 0; i < plist->size(); i++)	// target
 	{
-		if (!(i%1000))
-		{
-			#pragma omp critical
-			std::cout << cnt << "/" << plist->size() << std::endl;
-			#pragma omp atomic
-			cnt+=1000;
-		}
+//		if (!(i%1000))
+//		{
+//			#pragma omp critical
+//			std::cout << cnt << "/" << plist->size() << std::endl;
+//			#pragma omp atomic
+//			cnt+=1000;
+//		}
 		for (int j = 0; j < plist->size(); j++)	// source
 		{
 			scalar dx = h_x[i] - h_x[j];
@@ -383,9 +383,9 @@ void sphereTestElectronsProtons()
 		std::cout << "Step " << i << std::endl;
 
 		// solve
-		solveMultipole(&plist);
-//		solveDirect(&plist);
-//		solveDirectCpu(&plist, h);
+//		solveMultipoleGpu(&plist);
+//		solveDirectGpu(&plist);
+		solveDirectCpu(&plist, h);
 
 		// write
 		if (i==0 || !(i%dmpstride))
