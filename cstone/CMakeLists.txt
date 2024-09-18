@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.22)
 # CSTONE
 #
 
-set(CSTONE_INCLUDE ${PROJECT_SOURCE_DIR}/cstone/include)
+set(CSTONE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CSTONE_INCLUDE})
 
 add_library(cstone

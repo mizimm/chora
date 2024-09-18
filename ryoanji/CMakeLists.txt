@@ -1,39 +1,21 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ryoanji CXX)
-
+project(chora CXX CUDA)
 set(CMAKE_CXX_STANDARD 20)
 
-option(BUILD_TESTING "build unit and integration tests" ON)
-option(GPU_DIRECT "Enable CUDA-aware MPI communication" OFF)
+#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
+#set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG")
 
-find_package(MPI)
-find_package(OpenMP)
+set(CSTONE_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../cstone/include)
+include_directories(${CSTONE_INCLUDE})
 
-set(default_build_type "Release")
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-    set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif()
+find_package(MPI REQUIRED)
 
-check_language(CUDA)
-if(CMAKE_CUDA_COMPILER)
-    enable_language(CUDA)
-    find_package(CUDAToolkit)
-    set(CMAKE_CUDA_STANDARD 17)
-else()
-    message(STATUS "No CUDA support")
-endif()
+set(RYOANJI_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(${RYOANJI_INCLUDE} ${MPI_INCLUDE_PATH})
 
-check_language(HIP)
-if(CMAKE_HIP_COMPILER AND NOT CMAKE_CUDA_COMPILER)
-    enable_language(HIP)
-    find_package(hip)
-    set(CMAKE_HIP_STANDARD 17)
-endif()
-
-add_subdirectory(src)
-if (BUILD_TESTING)
-  add_subdirectory(test)
-endif ()
+add_library(ryoanji
+	${RYOANJI_INCLUDE}/ryoanji/interface/treebuilder.cu
+	${RYOANJI_INCLUDE}/ryoanji/interface/ewald.cu
+	${RYOANJI_INCLUDE}/ryoanji/interface/multipole_holder.cu
+)
