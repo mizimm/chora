@@ -19,8 +19,16 @@ endif ()
 # multi-rank demonstrator
 if (CMAKE_CUDA_COMPILER OR CMAKE_HIP_COMPILER)
     set(testname ryoanji_demo_mpi)
-    add_executable(${testname} demo_mpi.cpp)
+#    set(CMAKE_CUDA_ARCHITECTURES 80)
+    add_executable(${testname} demo_mpi.cpp util.cu ParticleList.cu ParticleAdvancer.cu Constants.cpp Maxwellian.cpp ErfInv.cpp Random.cpp)
     target_include_directories(${testname} PRIVATE ${RYOANJI_TEST_INCLUDE_DIRS})
+    set_target_properties(ryoanji_demo_mpi PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+# openmp for direct CPU solve (zimmemi1)
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(${testname} PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
     target_link_libraries(${testname} PRIVATE cstone_gpu ryoanji)
 
@@ -35,7 +43,7 @@ if (CMAKE_CUDA_COMPILER OR CMAKE_HIP_COMPILER)
     endif ()
 
     if (CMAKE_CUDA_COMPILER)
-        target_link_libraries(${testname} PRIVATE CUDA::cudart)
+        target_link_libraries(${testname} PRIVATE CUDA::cudart ${CUDA_LIBRARIES})
     endif ()
     target_compile_options(${testname} PRIVATE -Wno-unknown-pragmas)
     install(TARGETS ${testname} RUNTIME DESTINATION ${CMAKE_INSTALL_SBINDIR}/ryoanji/)

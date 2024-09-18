@@ -46,15 +46,23 @@ add_library(ryoanji
 # RYOANJI MPI DEMO
 #
 
-set(RYOANJI_TEST ${PROJECT_SOURCE_DIR}/ryoanji/test)
-set(CSTONE_TEST ${PROJECT_SOURCE_DIR}/cstone/test)
+#set(RYOANJI_TEST ${PROJECT_SOURCE_DIR}/ryoanji/test)
+#set(CSTONE_TEST ${PROJECT_SOURCE_DIR}/cstone/test)
+set(CHORA_DIR ${PROJECT_SOURCE_DIR}/chora)
 
-include_directories(${CSTONE_TEST} ${CUDAToolkit_INCLUDE_DIRS})
+include_directories(${CUDAToolkit_INCLUDE_DIRS})
 
-add_executable(ryoanji_demo_mpi
-	${RYOANJI_TEST}/demo_mpi.cpp
+add_executable(chora-test
+	${CHORA_DIR}/chora-test.cpp
+	${CHORA_DIR}/Constants.cpp
+	${CHORA_DIR}/ErfInv.cpp
+	${CHORA_DIR}/Maxwellian.cpp
+	${CHORA_DIR}/Random.cpp
+	${CHORA_DIR}/ParticleAdvancer.cu
+	${CHORA_DIR}/ParticleList.cu
+	${CHORA_DIR}/util.cu
 )
-set_target_properties(ryoanji_demo_mpi PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(chora-test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-target_link_libraries(ryoanji_demo_mpi PUBLIC ryoanji cstone MPI::MPI_CXX)
+target_link_libraries(chora-test PUBLIC ryoanji cstone MPI::MPI_CXX)
 

@@ -1,0 +1,89 @@
+// © 2024 Mike Zimmerman, The Johns Hopkins University Applied Physics Laboratory LLC
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/extrema.h>
+
+#include "ParticleList.cuh"
+#include "Constants.h"
+
+namespace chora
+{
+
+uint64_t ParticleList::size()
+{
+	return d_x.size();
+}
+
+void ParticleList::add(thrust::device_vector<scalar>& d_x, thrust::device_vector<scalar>& d_y, thrust::device_vector<scalar>& d_z, thrust::device_vector<scalar>& d_vx, thrust::device_vector<scalar>& d_vy, thrust::device_vector<scalar>& d_vz, scalar h, scalar q, scalar m, unsigned spid)
+{
+	this->d_x.insert(this->d_x.end(), d_x.begin(), d_x.end());
+	this->d_y.insert(this->d_y.end(), d_y.begin(), d_y.end());
+	this->d_z.insert(this->d_z.end(), d_z.begin(), d_z.end());
+
+	this->d_vx.insert(this->d_vx.end(), d_vx.begin(), d_vx.end());
+	this->d_vy.insert(this->d_vy.end(), d_vy.begin(), d_vy.end());
+	this->d_vz.insert(this->d_vz.end(), d_vz.begin(), d_vz.end());
+
+	int np = d_x.size();
+
+	thrust::constant_iterator<scalar> it_zero(0);
+	this->d_ex.insert(this->d_ex.end(), it_zero, it_zero + np);
+	this->d_ey.insert(this->d_ey.end(), it_zero, it_zero + np);
+	this->d_ez.insert(this->d_ez.end(), it_zero, it_zero + np);
+
+	thrust::constant_iterator<scalar> it_q(q);
+	thrust::constant_iterator<scalar> it_m(m);
+	thrust::constant_iterator<scalar> it_h(h);
+	this->d_q.insert(this->d_q.end(), it_q, it_q + np);
+	this->d_m.insert(this->d_m.end(), it_m, it_m + np);
+	this->d_h.insert(this->d_h.end(), it_h, it_h + np);
+
+	thrust::constant_iterator<unsigned> it_spid(spid);
+	this->d_spid.insert(this->d_spid.end(), it_spid, it_spid + np);
+}
+void ParticleList::add(thrust::device_vector<scalar>& d_x, thrust::device_vector<scalar>& d_y, thrust::device_vector<scalar>& d_z, scalar h, scalar q, scalar m, unsigned spid)
+{
+	int np = d_x.size();
+	thrust::device_vector<scalar> d_vx(np);
+	thrust::device_vector<scalar> d_vy(np);
+	thrust::device_vector<scalar> d_vz(np);
+	add(d_x, d_y, d_z, d_vx, d_vy, d_vz, h, q, m, spid);
+}
+
+void ParticleList::correctField()
+{
+      thrust::constant_iterator<scalar> it_coulomb(-Constants::COULOMB);
+      thrust::transform(d_ex.begin(), d_ex.end(), it_coulomb, d_ex.begin(), thrust::multiplies<scalar>());
+      thrust::transform(d_ey.begin(), d_ey.end(), it_coulomb, d_ey.begin(), thrust::multiplies<scalar>());
+      thrust::transform(d_ez.begin(), d_ez.end(), it_coulomb, d_ez.begin(), thrust::multiplies<scalar>());
+}
+
+/*void ParticleList::test()
+{
+	thrust::host_vector<scalar> h_x = d_x;
+	thrust::host_vector<scalar> h_y = d_y;
+	thrust::host_vector<scalar> h_z = d_z;
+
+	printf("%f %f %f\n", h_x[100], h_y[100], h_z[100]);
+}*/
+
+std::array<scalar, 6> ParticleList::getBounds()
+{
+	if (size() == 0)
+	{
+		return {0, 0, 0, 0, 0, 0};
+	}
+
+	scalar xmin = *thrust::min_element(d_x.begin(), d_x.end());
+	scalar xmax = *thrust::max_element(d_x.begin(), d_x.end());
+	scalar ymin = *thrust::min_element(d_y.begin(), d_y.end());
+	scalar ymax = *thrust::max_element(d_y.begin(), d_y.end());
+	scalar zmin = *thrust::min_element(d_z.begin(), d_z.end());
+	scalar zmax = *thrust::max_element(d_z.begin(), d_z.end());
+
+	return {xmin, xmax, ymin, ymax, zmin, zmax};
+}
+
+}
