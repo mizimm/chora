@@ -56,5 +56,5 @@ The output .bin files can be read by Matlab using the 'matlab/readbin.m' script.
 ## Authors
 
 * **Mike Zimmerman**
-
+* **Sebastian Keller**
 * **Rio Yokota**
