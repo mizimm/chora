@@ -3,6 +3,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/extrema.h>
+#include <thrust/sequence.h>
 
 #include "cstone/cuda/cuda_utils.cuh"
 #include "cstone/primitives/primitives_gpu.h"
@@ -38,6 +39,8 @@ void ParticleList::add(cstone::DeviceVector<scalar>& d_x, cstone::DeviceVector<s
                        cstone::DeviceVector<scalar>& d_vy, cstone::DeviceVector<scalar>& d_vz, scalar h, scalar q,
                        scalar m, unsigned spid)
 {
+    unsigned numParticlesBefore = this->size();
+
     append(this->d_x, d_x);
     append(this->d_y, d_y);
 	append(this->d_z, d_z);
@@ -46,18 +49,23 @@ void ParticleList::add(cstone::DeviceVector<scalar>& d_x, cstone::DeviceVector<s
 	append(this->d_vy, d_vy);
 	append(this->d_vz, d_vz);
 
-	auto np = d_x.size();
+    auto numParticlesToAdd = d_x.size();
 
-	append(this->d_ex, np, scalar(0));
-	append(this->d_ey, np, scalar(0));
-	append(this->d_ez, np, scalar(0));
+    append(this->d_ex, numParticlesToAdd, scalar(0));
+    append(this->d_ey, numParticlesToAdd, scalar(0));
+    append(this->d_ez, numParticlesToAdd, scalar(0));
 
-	append(this->d_q, np, q);
-	append(this->d_m, np, m);
-	append(this->d_h, np, h);
+    append(this->d_q, numParticlesToAdd, q);
+    append(this->d_m, numParticlesToAdd, m);
+    append(this->d_h, numParticlesToAdd, h);
 
-	thrust::constant_iterator<unsigned> it_spid(spid);
-    append(this->d_spid, np, spid);
+    thrust::constant_iterator<unsigned> it_spid(spid);
+    append(this->d_spid, numParticlesToAdd, spid);
+
+    // assign a unique ID to each particle
+    this->d_id.resize(numParticlesBefore + numParticlesToAdd);
+    thrust::sequence(thrust::device, this->d_id.data() + numParticlesBefore, this->d_id.data() + this->d_id.size(),
+                     numParticlesBefore);
 }
 
 void ParticleList::add(cstone::DeviceVector<scalar>& d_x, cstone::DeviceVector<scalar>& d_y,

@@ -37,7 +37,6 @@
 #include "cstone/cuda/cuda_utils.cuh"
 #include "cstone/cuda/device_vector.h"
 #include "cstone/domain/domain.hpp"
-//#include "coord_samples/random.hpp"
 
 #include "ryoanji/interface/multipole_holder.cuh"
 #include "ryoanji/nbody/cartesian_qpole.hpp"
@@ -89,10 +88,13 @@ void solveMultipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar the
 	unsigned numGlobalNodesPerRank = 100;
 	unsigned bucketSizeGlobal = std::max(size_t(bucketSizeFocus), plist->size()/ (numGlobalNodesPerRank * numRanks));
 	scalar G = 1.0;
-	float theta = 0;	// use low theta to effectively get direct solve
+	float theta = 0.5;	// use low theta to effectively get direct solve
 	cstone::Box<scalar> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
 
 	// TODO: ask Sebastian if the following comment means that h is a particle neighbor size, and not the particle size itself
+    // Answer: yes, h is an interaction radius for short-ranged forces (e.g. VdW, SPH, etc.)
+    // The treecode solver will soften the interaction between particle i and j as soon as the h-balls around them
+    // overlap. The potential between i and j gets capped to the potential at separation h_i + h_j.
 	// radius that includes ~30 neighbor particles on average
 	//double hmean = std::cbrt(30.0 / 0.523 / double(numParticlesGlobal) * box.lx() * box.ly() * box.lz());
 
@@ -114,24 +116,17 @@ void solveMultipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar the
 	cstone::DeviceVector<scalar> d_z = plist->d_z;
 	cstone::DeviceVector<scalar> d_h = plist->d_h;
 	cstone::DeviceVector<scalar> d_q = plist->d_q;
+    auto d_id = plist->d_id;
 
-	//! Build octrees, decompose domain and distribute particles and halos, may resize buffers
-	domain.syncGrav(
-		d_keys,
-		d_x,
-		d_y,
-		d_z,
-		d_h,
-		d_q,
-		std::tuple{}, std::tie(s1, s2, s3)
-	);
+    /*! Build octrees, decompose domain and distribute particles and halos, may resize buffers
+     *  Particles will be reordered along a Space-Filling-Curve, d_id keeps track of the original order.
+     */
+    domain.syncGrav(d_keys, d_x, d_y, d_z, d_h, d_q, std::tie(d_id), std::tie(s1, s2, s3));
 
-	//! halos for x,y,z,h are already exchanged in syncGrav
-	domain.exchangeHalos(
-		std::tie(d_q), s1, s2
-	);
+    //! halos for x,y,z,h are already exchanged in syncGrav
+    domain.exchangeHalos(std::tie(d_q), s1, s2);
 
-	cstone::DeviceVector<scalar> d_ex = std::vector<scalar>(domain.nParticlesWithHalos());
+    cstone::DeviceVector<scalar> d_ex = std::vector<scalar>(domain.nParticlesWithHalos());
 	cstone::DeviceVector<scalar> d_ey = std::vector<scalar>(domain.nParticlesWithHalos());
 	cstone::DeviceVector<scalar> d_ez = std::vector<scalar>(domain.nParticlesWithHalos());
 
@@ -198,10 +193,12 @@ void solveMultipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar the
 
 //	std::cout << d_ax.size() << " " << plist->d_ax.size() << " " << d_ax.startIndex() << " " << d_ax.endIndex() << std::endl;
 
-	// copy particle accelerations into plist
-	memcpyD2D(d_ex.data() + domain.startIndex(), domain.endIndex() - domain.startIndex(), plist->d_ex.data());
-	memcpyD2D(d_ey.data() + domain.startIndex(), domain.endIndex() - domain.startIndex(), plist->d_ey.data());
-	memcpyD2D(d_ez.data() + domain.startIndex(), domain.endIndex() - domain.startIndex(), plist->d_ez.data());
+	// copy particle accelerations back into plist, in original ordering
+    const auto* map  = d_id.data() + domain.startIndex();
+    size_t numElements = domain.nParticles();
+	chora::scatterGpu(map, numElements, d_ex.data() + domain.startIndex(), plist->d_ex.data() + domain.startIndex());
+    chora::scatterGpu(map, numElements, d_ey.data() + domain.startIndex(), plist->d_ey.data() + domain.startIndex());
+    chora::scatterGpu(map, numElements, d_ez.data() + domain.startIndex(), plist->d_ez.data() + domain.startIndex());
 
 	plist->correctField();
 }
@@ -301,25 +298,26 @@ std::string enumerateFilename(std::string prefix, int i, std::string extension)
 	return prefix + "_" + std::to_string(i) + "." + extension;
 }
 
-void loadMaxwellianSphere(Maxwellian* f, scalar h, scalar q, scalar m, scalar np2c, int spid, chora::ParticleList* plist, unsigned npsphere, scalar radius)
+void loadMaxwellianSphere(Maxwellian* f, scalar h, scalar q, scalar m, scalar np2c, int spid,
+                          chora::ParticleList* plist, unsigned npsphere, scalar radius)
 {
-	unsigned npbox = 6. / M_PI * (scalar)npsphere;
+    unsigned npbox = 6. / M_PI * (scalar)npsphere;
 
-	std::array<scalar, 6> bounds{-radius, radius, -radius, radius, -radius, radius};
+    std::array<scalar, 6> bounds{-radius, radius, -radius, radius, -radius, radius};
 
-	std::vector<scalar> h_x;
-	std::vector<scalar> h_y;
-	std::vector<scalar> h_z;
-	std::vector<scalar> h_vx;
-	std::vector<scalar> h_vy;
-	std::vector<scalar> h_vz;
+    std::vector<scalar> h_x;
+    std::vector<scalar> h_y;
+    std::vector<scalar> h_z;
+    std::vector<scalar> h_vx;
+    std::vector<scalar> h_vy;
+    std::vector<scalar> h_vz;
 
-	for (unsigned i = 0; i < npbox; i++)
-	{
-		scalar x = Random::between(-radius, radius);
-		scalar y = Random::between(-radius, radius);
-		scalar z = Random::between(-radius, radius);
-		scalar r = sqrt(x*x + y*y + z*z);
+    for (unsigned i = 0; i < npbox; i++)
+    {
+        scalar x = Random::between(-radius, radius);
+        scalar y = Random::between(-radius, radius);
+        scalar z = Random::between(-radius, radius);
+        scalar r = sqrt(x * x + y * y + z * z);
 		if (r > radius)
 		{
 			continue;
@@ -378,9 +376,9 @@ void sphereTestElectronsProtons()
 		std::cout << "Step " << i << std::endl;
 
 		// solve
-		//solveMultipoleGpu(&plist);
+		solveMultipoleGpu(&plist);
 		//solveDirectGpu(&plist);
-		solveDirectCpu(&plist, h);
+		//solveDirectCpu(&plist, h);
 
 		// write
 		if (i==0 || !(i%dmpstride))

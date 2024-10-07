@@ -22,6 +22,9 @@ extern void writeDeviceVectorBin(FILE* fid, cstone::DeviceVector<T>& d_a, cstone
 
 void writeParticlesBin(ParticleList* plist, std::string filename);
 
+template<class T, class IndexType>
+extern void scatterGpu(const IndexType* map, size_t n, const T* source, T* destination);
+
 struct NormalSampler
 {
     scalar a, b;

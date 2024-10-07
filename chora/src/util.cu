@@ -118,4 +118,28 @@ __host__ __device__ scalar UniformSampler::operator()(const unsigned n) const
 	return dist(rng);
 }
 
+template<class T, class IndexType>
+__global__ void scatterGpuKernel(const IndexType* map, size_t n, const T* source, T* destination)
+{
+    size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid < n) { destination[map[tid]] = source[tid]; }
 }
+
+template<class T, class IndexType>
+void scatterGpu(const IndexType* map, size_t n, const T* source, T* destination)
+{
+    if (n == 0) { return; }
+
+    unsigned numThreads = 256;
+    unsigned numBlocks  = (n - 1) / numThreads + 1;
+
+    scatterGpuKernel<<<numBlocks, numThreads>>>(map, n, source, destination);
+}
+
+#define SCATTER_GPU(T, IndexType)                                                                                      \
+    template void scatterGpu(const IndexType* map, size_t n, const T* source, T* destination)
+
+SCATTER_GPU(scalar, unsigned);
+
+} // namespace chora
