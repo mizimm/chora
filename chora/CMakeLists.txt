@@ -35,5 +35,5 @@ add_executable(chora-test
 )
 set_target_properties(chora-test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-target_link_libraries(chora-test PUBLIC ryoanji cstone MPI::MPI_CXX OpenMP::OpenMP_CXX)
+target_link_libraries(chora-test PUBLIC ryoanji cstone_gpu MPI::MPI_CXX OpenMP::OpenMP_CXX)
 

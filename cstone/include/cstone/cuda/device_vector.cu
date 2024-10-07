@@ -162,6 +162,7 @@ bool operator==(const DeviceVector<T>& lhs, const DeviceVector<T>& rhs)
     template class DeviceVector<T>;                                                                                    \
     template bool operator==(const DeviceVector<T>&, const DeviceVector<T>&);
 
+DEVICE_VECTOR(bool);
 DEVICE_VECTOR(char);
 DEVICE_VECTOR(uint8_t);
 DEVICE_VECTOR(int);
