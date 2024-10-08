@@ -33,16 +33,10 @@
 
 #include <array>
 
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
-#include <thrust/transform.h>
-#include <thrust/tuple.h>
-#include <thrust/iterator/constant_iterator.h>
-
 #define USE_CUDA
 #include "cstone/cuda/cuda_utils.cuh"
+#include "cstone/cuda/device_vector.h"
 #include "cstone/domain/domain.hpp"
-//#include "coord_samples/random.hpp"
 
 #include "ryoanji/interface/multipole_holder.cuh"
 #include "ryoanji/nbody/cartesian_qpole.hpp"
@@ -94,10 +88,13 @@ void solveMultipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar the
 	unsigned numGlobalNodesPerRank = 100;
 	unsigned bucketSizeGlobal = std::max(size_t(bucketSizeFocus), plist->size()/ (numGlobalNodesPerRank * numRanks));
 	scalar G = 1.0;
-	float theta = 0;	// use low theta to effectively get direct solve
+	float theta = 0.5;	// use low theta to effectively get direct solve
 	cstone::Box<scalar> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
 
 	// TODO: ask Sebastian if the following comment means that h is a particle neighbor size, and not the particle size itself
+    // Answer: yes, h is an interaction radius for short-ranged forces (e.g. VdW, SPH, etc.)
+    // The treecode solver will soften the interaction between particle i and j as soon as the h-balls around them
+    // overlap. The potential between i and j gets capped to the potential at separation h_i + h_j.
 	// radius that includes ~30 neighbor particles on average
 	//double hmean = std::cbrt(30.0 / 0.523 / double(numParticlesGlobal) * box.lx() * box.ly() * box.lz());
 
@@ -111,34 +108,27 @@ void solveMultipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar the
 		box
 	);
 
-	thrust::device_vector<keytype> d_keys = std::vector<keytype>(numParticles);
-	thrust::device_vector<scalar>   s1, s2, s3; // scratch buffers for sorting, reordering, etc
+	cstone::DeviceVector<keytype> d_keys = std::vector<keytype>(numParticles);
+	cstone::DeviceVector<scalar>   s1, s2, s3; // scratch buffers for sorting, reordering, etc
 
-	thrust::device_vector<scalar> d_x = plist->d_x;
-	thrust::device_vector<scalar> d_y = plist->d_y;
-	thrust::device_vector<scalar> d_z = plist->d_z;
-	thrust::device_vector<scalar> d_h = plist->d_h;
-	thrust::device_vector<scalar> d_q = plist->d_q;
+	cstone::DeviceVector<scalar> d_x = plist->d_x;
+	cstone::DeviceVector<scalar> d_y = plist->d_y;
+	cstone::DeviceVector<scalar> d_z = plist->d_z;
+	cstone::DeviceVector<scalar> d_h = plist->d_h;
+	cstone::DeviceVector<scalar> d_q = plist->d_q;
+    auto d_id = plist->d_id;
 
-	//! Build octrees, decompose domain and distribute particles and halos, may resize buffers
-	domain.syncGrav(
-		d_keys,
-		d_x,
-		d_y,
-		d_z,
-		d_h,
-		d_q,
-		std::tuple{}, std::tie(s1, s2, s3)
-	);
+    /*! Build octrees, decompose domain and distribute particles and halos, may resize buffers
+     *  Particles will be reordered along a Space-Filling-Curve, d_id keeps track of the original order.
+     */
+    domain.syncGrav(d_keys, d_x, d_y, d_z, d_h, d_q, std::tie(d_id), std::tie(s1, s2, s3));
 
-	//! halos for x,y,z,h are already exchanged in syncGrav
-	domain.exchangeHalos(
-		std::tie(d_q), s1, s2
-	);
+    //! halos for x,y,z,h are already exchanged in syncGrav
+    domain.exchangeHalos(std::tie(d_q), s1, s2);
 
-	thrust::device_vector<scalar> d_ex = std::vector<scalar>(domain.nParticlesWithHalos());
-	thrust::device_vector<scalar> d_ey = std::vector<scalar>(domain.nParticlesWithHalos());
-	thrust::device_vector<scalar> d_ez = std::vector<scalar>(domain.nParticlesWithHalos());
+    cstone::DeviceVector<scalar> d_ex = std::vector<scalar>(domain.nParticlesWithHalos());
+	cstone::DeviceVector<scalar> d_ey = std::vector<scalar>(domain.nParticlesWithHalos());
+	cstone::DeviceVector<scalar> d_ez = std::vector<scalar>(domain.nParticlesWithHalos());
 
 	//! includes tree plus associated information, like nearby ranks, assignment, counts, MAC spheres, etc
 	const cstone::FocusedOctree<keytype, scalar, acctype>& focusTree = domain.focusTree();
@@ -203,10 +193,12 @@ void solveMultipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar the
 
 //	std::cout << d_ax.size() << " " << plist->d_ax.size() << " " << d_ax.startIndex() << " " << d_ax.endIndex() << std::endl;
 
-	// copy particle accelerations into plist
-	thrust::copy(d_ex.begin() + domain.startIndex(), d_ex.begin() + domain.endIndex(), plist->d_ex.begin());
-	thrust::copy(d_ey.begin() + domain.startIndex(), d_ey.begin() + domain.endIndex(), plist->d_ey.begin());
-	thrust::copy(d_ez.begin() + domain.startIndex(), d_ez.begin() + domain.endIndex(), plist->d_ez.begin());
+	// copy particle accelerations back into plist, in original ordering
+    const auto* map  = d_id.data() + domain.startIndex();
+    size_t numElements = domain.nParticles();
+	chora::scatterGpu(map, numElements, d_ex.data() + domain.startIndex(), plist->d_ex.data() + domain.startIndex());
+    chora::scatterGpu(map, numElements, d_ey.data() + domain.startIndex(), plist->d_ey.data() + domain.startIndex());
+    chora::scatterGpu(map, numElements, d_ez.data() + domain.startIndex(), plist->d_ez.data() + domain.startIndex());
 
 	plist->correctField();
 }
@@ -216,27 +208,27 @@ void solveDirectGpu(chora::ParticleList* plist)
 	std::array<scalar, 6> bounds = plist->getBounds();
 	cstone::Box<scalar> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
 
-	thrust::device_vector<scalar> d_x = plist->d_x;
-	thrust::device_vector<scalar> d_y = plist->d_y;
-	thrust::device_vector<scalar> d_z = plist->d_z;
-	thrust::device_vector<scalar> d_h = plist->d_h;
-	thrust::device_vector<scalar> d_q = plist->d_q;
+	cstone::DeviceVector<scalar> d_x = plist->d_x;
+	cstone::DeviceVector<scalar> d_y = plist->d_y;
+	cstone::DeviceVector<scalar> d_z = plist->d_z;
+	cstone::DeviceVector<scalar> d_h = plist->d_h;
+	cstone::DeviceVector<scalar> d_q = plist->d_q;
 
 	int numBodies = plist->size();
 	int numShells = 0;
 
-	thrust::device_vector<scalar> d_ex = std::vector<scalar>(numBodies);
-	thrust::device_vector<scalar> d_ey = std::vector<scalar>(numBodies);
-	thrust::device_vector<scalar> d_ez = std::vector<scalar>(numBodies);
-	thrust::device_vector<scalar> d_phi = std::vector<scalar>(numBodies);
+	cstone::DeviceVector<scalar> d_ex = std::vector<scalar>(numBodies);
+	cstone::DeviceVector<scalar> d_ey = std::vector<scalar>(numBodies);
+	cstone::DeviceVector<scalar> d_ez = std::vector<scalar>(numBodies);
+	cstone::DeviceVector<scalar> d_phi = std::vector<scalar>(numBodies);
 
 	ryoanji::directSum(0, numBodies, numBodies, {box.lx(), box.ly(), box.lz()}, numShells, rawPtr(d_x), rawPtr(d_y),
               rawPtr(d_z), rawPtr(d_q), rawPtr(d_h), rawPtr(d_phi), rawPtr(d_ex), rawPtr(d_ey), rawPtr(d_ez));
 
 	// copy particle accelerations into plist
-	thrust::copy(d_ex.begin(), d_ex.end(), plist->d_ex.begin());
-	thrust::copy(d_ey.begin(), d_ey.end(), plist->d_ey.begin());
-	thrust::copy(d_ez.begin(), d_ez.end(), plist->d_ez.begin());
+	memcpyD2D(d_ex.data(), d_ex.size(), plist->d_ex.data());
+	memcpyD2D(d_ey.data(), d_ey.size(), plist->d_ey.data());
+	memcpyD2D(d_ez.data(), d_ez.size(), plist->d_ez.data());
 
 	plist->correctField();
 }
@@ -250,18 +242,18 @@ namespace chora
 
 void solveDirectCpu(chora::ParticleList* plist, scalar dmin)
 {
-	thrust::host_vector<scalar> h_x = plist->d_x;
-	thrust::host_vector<scalar> h_y = plist->d_y;
-	thrust::host_vector<scalar> h_z = plist->d_z;
-	thrust::host_vector<scalar> h_q = plist->d_q;
+	std::vector<scalar> h_x = toHost(plist->d_x);
+	std::vector<scalar> h_y = toHost(plist->d_y);
+	std::vector<scalar> h_z = toHost(plist->d_z);
+	std::vector<scalar> h_q = toHost(plist->d_q);
 
-	thrust::host_vector<scalar> h_ex(plist->size());
-	thrust::host_vector<scalar> h_ey(plist->size());
-	thrust::host_vector<scalar> h_ez(plist->size());
+	std::vector<scalar> h_ex(plist->size());
+	std::vector<scalar> h_ey(plist->size());
+	std::vector<scalar> h_ez(plist->size());
 
-	thrust::fill(h_ex.begin(), h_ex.end(), 0);
-	thrust::fill(h_ey.begin(), h_ey.end(), 0);
-	thrust::fill(h_ez.begin(), h_ez.end(), 0);
+	std::fill(h_ex.begin(), h_ex.end(), 0);
+	std::fill(h_ey.begin(), h_ey.end(), 0);
+	std::fill(h_ez.begin(), h_ez.end(), 0);
 
 //	int cnt = 0;
 
@@ -306,25 +298,26 @@ std::string enumerateFilename(std::string prefix, int i, std::string extension)
 	return prefix + "_" + std::to_string(i) + "." + extension;
 }
 
-void loadMaxwellianSphere(Maxwellian* f, scalar h, scalar q, scalar m, scalar np2c, int spid, chora::ParticleList* plist, unsigned npsphere, scalar radius)
+void loadMaxwellianSphere(Maxwellian* f, scalar h, scalar q, scalar m, scalar np2c, int spid,
+                          chora::ParticleList* plist, unsigned npsphere, scalar radius)
 {
-	unsigned npbox = 6. / M_PI * (scalar)npsphere;
+    unsigned npbox = 6. / M_PI * (scalar)npsphere;
 
-	std::array<scalar, 6> bounds{-radius, radius, -radius, radius, -radius, radius};
+    std::array<scalar, 6> bounds{-radius, radius, -radius, radius, -radius, radius};
 
-	thrust::host_vector<scalar> h_x;
-	thrust::host_vector<scalar> h_y;
-	thrust::host_vector<scalar> h_z;
-	thrust::host_vector<scalar> h_vx;
-	thrust::host_vector<scalar> h_vy;
-	thrust::host_vector<scalar> h_vz;
+    std::vector<scalar> h_x;
+    std::vector<scalar> h_y;
+    std::vector<scalar> h_z;
+    std::vector<scalar> h_vx;
+    std::vector<scalar> h_vy;
+    std::vector<scalar> h_vz;
 
-	for (unsigned i = 0; i < npbox; i++)
-	{
-		scalar x = Random::between(-radius, radius);
-		scalar y = Random::between(-radius, radius);
-		scalar z = Random::between(-radius, radius);
-		scalar r = sqrt(x*x + y*y + z*z);
+    for (unsigned i = 0; i < npbox; i++)
+    {
+        scalar x = Random::between(-radius, radius);
+        scalar y = Random::between(-radius, radius);
+        scalar z = Random::between(-radius, radius);
+        scalar r = sqrt(x * x + y * y + z * z);
 		if (r > radius)
 		{
 			continue;
@@ -341,12 +334,12 @@ void loadMaxwellianSphere(Maxwellian* f, scalar h, scalar q, scalar m, scalar np
 		h_vz.push_back(vz);
 	}
 
-	thrust::device_vector<scalar> d_x = h_x;
-	thrust::device_vector<scalar> d_y = h_y;
-	thrust::device_vector<scalar> d_z = h_z;
-	thrust::device_vector<scalar> d_vx = h_vx;
-	thrust::device_vector<scalar> d_vy = h_vy;
-	thrust::device_vector<scalar> d_vz = h_vz;
+	cstone::DeviceVector<scalar> d_x = h_x;
+	cstone::DeviceVector<scalar> d_y = h_y;
+	cstone::DeviceVector<scalar> d_z = h_z;
+	cstone::DeviceVector<scalar> d_vx = h_vx;
+	cstone::DeviceVector<scalar> d_vy = h_vy;
+	cstone::DeviceVector<scalar> d_vz = h_vz;
 	plist->add(d_x, d_y, d_z, d_vx, d_vy, d_vz, h, -q*np2c, m*np2c, spid);
 }
 
@@ -383,9 +376,9 @@ void sphereTestElectronsProtons()
 		std::cout << "Step " << i << std::endl;
 
 		// solve
-//		solveMultipoleGpu(&plist);
-//		solveDirectGpu(&plist);
-		solveDirectCpu(&plist, h);
+		solveMultipoleGpu(&plist);
+		//solveDirectGpu(&plist);
+		//solveDirectCpu(&plist, h);
 
 		// write
 		if (i==0 || !(i%dmpstride))
