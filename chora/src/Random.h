@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "scalar.h"
-
 namespace chora
 {
 
@@ -11,10 +9,10 @@ class Random
 {
 public:
 
-	static scalar one();
-	static scalar pmone();
-	static scalar pmhalf();
-	static scalar between(scalar a, scalar b);
+	static double one();
+	static double pmone();
+	static double pmhalf();
+	static double between(double a, double b);
 };
 
 }

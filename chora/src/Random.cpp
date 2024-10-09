@@ -7,22 +7,22 @@
 namespace chora
 {
 
-scalar Random::one()
+double Random::one()
 {
 	return (double)rand() / RAND_MAX;
 }
 
-scalar Random::pmone()
+double Random::pmone()
 {
 	return one() * 2 - 1;
 }
 
-scalar Random::pmhalf()
+double Random::pmhalf()
 {
 	return one() - 0.5;
 }
 
-scalar Random::between(scalar a, scalar b)
+double Random::between(double a, double b)
 {
 	return a + (b-a) * one();
 }

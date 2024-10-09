@@ -13,7 +13,7 @@ class Solvers
 public:
 	static void multipoleGpu(chora::ParticleList* plist);
 	static void directGpu(chora::ParticleList* plist);
-	static void directCpu(chora::ParticleList* plist, scalar dmin);
+	static void directCpu(chora::ParticleList* plist, double dmin);
 };
 
 }

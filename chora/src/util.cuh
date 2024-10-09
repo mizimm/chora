@@ -51,23 +51,23 @@ void writeDeviceVectorBin(FILE* fid, thrust::device_vector<T>& d_a, thrust::devi
 void writeParticlesBin(ParticleList* plist, std::string filename);
 
 
-struct NormalSampler
+/*struct NormalSampler
 {
-	scalar a, b;
+	double a, b;
 
-	__host__ __device__ NormalSampler(scalar a, scalar b);
+	__host__ __device__ NormalSampler(double a, double b);
 
-	__host__ __device__ scalar operator()(const unsigned n) const;
+	__host__ __device__ double operator()(const unsigned n) const;
 };
 
 struct UniformSampler
 {
-	scalar a, b;
+	double a, b;
 
-	__host__ __device__ UniformSampler(scalar a, scalar b);
+	__host__ __device__ UniformSampler(double a, double b);
 
-	__host__ __device__ scalar operator()(const unsigned n) const;
-};
+	__host__ __device__ double operator()(const unsigned n) const;
+};*/
 
 
 }

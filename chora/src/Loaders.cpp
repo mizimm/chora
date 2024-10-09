@@ -11,32 +11,32 @@
 namespace chora
 {
 
-void Loaders::loadMaxwellianSphere(Maxwellian* f, scalar h, scalar q, scalar m, scalar np2c, int spid, chora::ParticleList* plist, unsigned npsphere, scalar radius)
+void Loaders::loadMaxwellianSphere(Maxwellian* f, double h, double q, double m, double np2c, int spid, chora::ParticleList* plist, unsigned npsphere, double radius)
 {
-	unsigned npbox = 6. / M_PI * (scalar)npsphere;
+	unsigned npbox = 6. / M_PI * (double)npsphere;
 
-	std::array<scalar, 6> bounds{-radius, radius, -radius, radius, -radius, radius};
+	std::array<double, 6> bounds{-radius, radius, -radius, radius, -radius, radius};
 
-	thrust::host_vector<scalar> h_x;
-	thrust::host_vector<scalar> h_y;
-	thrust::host_vector<scalar> h_z;
-	thrust::host_vector<scalar> h_vx;
-	thrust::host_vector<scalar> h_vy;
-	thrust::host_vector<scalar> h_vz;
+	thrust::host_vector<double> h_x;
+	thrust::host_vector<double> h_y;
+	thrust::host_vector<double> h_z;
+	thrust::host_vector<double> h_vx;
+	thrust::host_vector<double> h_vy;
+	thrust::host_vector<double> h_vz;
 
 	for (unsigned i = 0; i < npbox; i++)
 	{
-		scalar x = Random::between(-radius, radius);
-		scalar y = Random::between(-radius, radius);
-		scalar z = Random::between(-radius, radius);
-		scalar r = sqrt(x*x + y*y + z*z);
+		double x = Random::between(-radius, radius);
+		double y = Random::between(-radius, radius);
+		double z = Random::between(-radius, radius);
+		double r = sqrt(x*x + y*y + z*z);
 		if (r > radius)
 		{
 			continue;
 		}
-		scalar vx = f->vdx + f->vth *  ErfInv::value(Random::pmone());
-		scalar vy = f->vdy + f->vth *  ErfInv::value(Random::pmone());
-		scalar vz = f->vdz + f->vth *  ErfInv::value(Random::pmone());
+		double vx = f->vdx + f->vth *  ErfInv::value(Random::pmone());
+		double vy = f->vdy + f->vth *  ErfInv::value(Random::pmone());
+		double vz = f->vdz + f->vth *  ErfInv::value(Random::pmone());
 		//
 		h_x.push_back(x);
 		h_y.push_back(y);
@@ -46,12 +46,12 @@ void Loaders::loadMaxwellianSphere(Maxwellian* f, scalar h, scalar q, scalar m, 
 		h_vz.push_back(vz);
 	}
 
-	thrust::device_vector<scalar> d_x = h_x;
-	thrust::device_vector<scalar> d_y = h_y;
-	thrust::device_vector<scalar> d_z = h_z;
-	thrust::device_vector<scalar> d_vx = h_vx;
-	thrust::device_vector<scalar> d_vy = h_vy;
-	thrust::device_vector<scalar> d_vz = h_vz;
+	thrust::device_vector<double> d_x = h_x;
+	thrust::device_vector<double> d_y = h_y;
+	thrust::device_vector<double> d_z = h_z;
+	thrust::device_vector<double> d_vx = h_vx;
+	thrust::device_vector<double> d_vy = h_vy;
+	thrust::device_vector<double> d_vz = h_vz;
 	plist->add(d_x, d_y, d_z, d_vx, d_vy, d_vz, h, q*np2c, m*np2c, spid);
 }
 

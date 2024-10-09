@@ -9,7 +9,7 @@ Maxwellian::Maxwellian()
 {
 }
 
-Maxwellian::Maxwellian(scalar vdx, scalar vdy, scalar vdz, scalar vth) :
+Maxwellian::Maxwellian(double vdx, double vdy, double vdz, double vth) :
 	vdx(vdx), vdy(vdy), vdz(vdz), vth(vth)
 {
 }

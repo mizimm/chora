@@ -5,24 +5,24 @@
 namespace chora
 {
 
-ParticleAdvancer::ParticleAdvancer(scalar dt) :
+ParticleAdvancer::ParticleAdvancer(double dt) :
 	dt(dt)
 {
 }
 
-__host__ __device__ thrust::tuple<scalar,scalar,scalar,scalar,scalar,scalar> ParticleAdvancer::operator ()(thrust::tuple<scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar> t)
+__host__ __device__ thrust::tuple<double,double,double,double,double,double> ParticleAdvancer::operator ()(thrust::tuple<double,double,double,double,double,double,double,double,double,double,double> t)
 {
-	scalar x = thrust::get<0>(t);
-	scalar y = thrust::get<1>(t);
-	scalar z = thrust::get<2>(t);
-	scalar vx = thrust::get<3>(t);
-	scalar vy = thrust::get<4>(t);
-	scalar vz = thrust::get<5>(t);
-	scalar ex = thrust::get<6>(t);
-	scalar ey = thrust::get<7>(t);
-	scalar ez = thrust::get<8>(t);
-	scalar q = thrust::get<9>(t);
-	scalar m = thrust::get<10>(t);
+	double x = thrust::get<0>(t);
+	double y = thrust::get<1>(t);
+	double z = thrust::get<2>(t);
+	double vx = thrust::get<3>(t);
+	double vy = thrust::get<4>(t);
+	double vz = thrust::get<5>(t);
+	double ex = thrust::get<6>(t);
+	double ey = thrust::get<7>(t);
+	double ez = thrust::get<8>(t);
+	double q = thrust::get<9>(t);
+	double m = thrust::get<10>(t);
 
 //	vx += ex * q / m * dt;
 //	vy += ey * q / m * dt;
@@ -40,9 +40,9 @@ __host__ __device__ thrust::tuple<scalar,scalar,scalar,scalar,scalar,scalar> Par
 
 void ParticleAdvancer::apply(ParticleList* plist, double dt)
 {
-	thrust::device_vector<scalar> xold = plist->d_x;
-	thrust::device_vector<scalar> yold = plist->d_y;
-	thrust::device_vector<scalar> zold = plist->d_z;
+	thrust::device_vector<double> xold = plist->d_x;
+	thrust::device_vector<double> yold = plist->d_y;
+	thrust::device_vector<double> zold = plist->d_z;
 
 	auto beginOld = thrust::make_zip_iterator(
 		thrust::make_tuple(

@@ -8,7 +8,6 @@
 #include <thrust/random.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include "scalar.h"
 #include "util.cuh"
 
 namespace chora
@@ -78,34 +77,34 @@ void writeParticlesBin(ParticleList* plist, std::string filename)
 	fclose(fid);
 }
 
-NormalSampler::NormalSampler(scalar a, scalar b)
+/*NormalSampler::NormalSampler(double a, double b)
 	:
 	a(a),
 	b(b)
 {
 }
 
-scalar NormalSampler::operator()(const unsigned n) const
+double NormalSampler::operator()(const unsigned n) const
 {
 	thrust::default_random_engine rng;
-	thrust::random::normal_distribution<scalar> dist(a, b);
+	thrust::random::normal_distribution<double> dist(a, b);
 	rng.discard(n);
 	return dist(rng);
 }
 
-UniformSampler::UniformSampler(scalar a, scalar b)
+UniformSampler::UniformSampler(double a, double b)
 	:
 	a(a),
 	b(b)
 {
 }
 
-scalar UniformSampler::operator()(const unsigned n) const
+double UniformSampler::operator()(const unsigned n) const
 {
 	thrust::default_random_engine rng;
-	thrust::random::uniform_real_distribution<scalar> dist(a, b);
+	thrust::random::uniform_real_distribution<double> dist(a, b);
 	rng.discard(n);
 	return dist(rng);
-}
+}*/
 
 }

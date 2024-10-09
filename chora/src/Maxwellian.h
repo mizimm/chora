@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "scalar.h"
-
 namespace chora
 {
 
@@ -11,12 +9,12 @@ class Maxwellian
 {
 public:
 	Maxwellian();
-	Maxwellian(scalar vdx, scalar vdy, scalar vdz, scalar vth);
+	Maxwellian(double vdx, double vdy, double vdz, double vth);
 
-	scalar vdx;
-	scalar vdy;
-	scalar vdz;
-	scalar vth;
+	double vdx;
+	double vdy;
+	double vdz;
+	double vth;
 };
 
 }

@@ -10,18 +10,16 @@
 #pragma once
 
 
-#include "scalar.h"
-
 namespace chora
 {
 
 struct Constants {
-	static const scalar QE;
-	static const scalar EPS0;
-	static const scalar ME;
-	static const scalar MP;
-	static const scalar COULOMB;
-	static const scalar BOLTZMANN;
+	static const double QE;
+	static const double EPS0;
+	static const double ME;
+	static const double MP;
+	static const double COULOMB;
+	static const double BOLTZMANN;
 };
 
 }

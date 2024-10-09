@@ -37,7 +37,6 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-#include "scalar.h"
 #include "ParticleList.cuh"
 #include "ParticleAdvancer.cuh"
 #include "Constants.h"
@@ -66,23 +65,36 @@ std::string enumerateFilename(std::string prefix, int i, std::string extension)
 	return prefix + "_" + std::to_string(i) + "." + extension;
 }
 
+/*void createSideInjectors(vector<QuadEmitter*>& injectors, const Box& bbox, const vector<BoxSide>& sides, Maxwellian* f, double n0, double np2c, double dnml)
+{
+        for (BoxSide side : sides)
+        {
+                Quad* quad = GeomUtil::createSide(bbox, side, BoxNormals::INWARD);
+                OrthonormalBasis* basis = new OrthonormalBasis(quad->getNormal());
+                FluxSampler* fluxsamp = new MaxwellianFluxSampler(f, basis);
+                double ptclrate = n0 * fluxsamp->getMeanNormalVelocity() * quad->getArea() / np2c;
+                QuadEmitter* emitter = new QuadEmitter(quad, fluxsamp, ptclrate, dnml);
+                injectors.push_back(emitter);
+        }
+}*/
+
 void sphereTestElectronsProtons()
 {
 	// constants
-	scalar dt = 1e-6;//5e-7;
-	scalar n0 = 5e6;
-	scalar np2c = 5e8;
-	scalar radius = 50;
-	scalar vdx = 0;
-	scalar vdy = 0;
-	scalar vdz = 0;
-	scalar vthe = 2e5;
-	scalar vthi = vthe * sqrt(Constants::ME / Constants::MP);
+	double dt = 1e-6;//5e-7;
+	double n0 = 5e6;
+	double np2c = 5e8;
+	double radius = 50;
+	double vdx = 0;
+	double vdy = 0;
+	double vdz = 0;
+	double vthe = 2e5;
+	double vthi = vthe * sqrt(Constants::ME / Constants::MP);
 
 	// compute particle size
-	scalar spherevol = 4 * M_PI * pow(radius, 3) / 3;
+	double spherevol = 4 * M_PI * pow(radius, 3) / 3;
 	unsigned np = n0 * spherevol / np2c;
-	scalar h = cbrt(spherevol/np);
+	double h = cbrt(spherevol/np);
 
 	// load particles
 	ParticleList plist;
@@ -113,15 +125,6 @@ void sphereTestElectronsProtons()
 		ParticleAdvancer(dt).apply(&plist, dt);
 	}
 }
-
-
-/*void pairTest()
-{
-	chora::ParticleList plist;
-	chora::PairLoader::load(&plist, {-0.5, 0, 0}, {0.5, 0, 0}, 0.01, 0.01, -1, 1);
-	solveDirect(&plist, {-1, 1, -1, 1, -1, 1});
-	chora::writeParticlesBin(&plist, "out.bin");
-}*/
 
 }
 

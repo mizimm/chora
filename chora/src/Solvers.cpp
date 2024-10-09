@@ -18,16 +18,14 @@
 #include "ryoanji/interface/multipole_holder.cuh"
 #include "ryoanji/nbody/cartesian_qpole.hpp"
 
-#include "keytype.h"
-#include "scalar.h"
 #include "Constants.h"
 
 namespace chora
 {
 
-void Solvers::multipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar theta = 0.5)
+void Solvers::multipoleGpu(chora::ParticleList* plist)//, double G = 1.0, double theta = 0.5)
 {
-	std::array<scalar, 6> bounds = plist->getBounds();
+	std::array<double, 6> bounds = plist->getBounds();
 
 	// explicitly run without MPI parallelism
 	int thisRank = 0;
@@ -37,12 +35,13 @@ void Solvers::multipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar
 	unsigned bucketSizeFocus = 64;
 	unsigned numGlobalNodesPerRank = 100;
 	unsigned bucketSizeGlobal = std::max(size_t(bucketSizeFocus), plist->size()/ (numGlobalNodesPerRank * numRanks));
-	scalar G = 1.0;
+	double G = 1.0;
 	float theta = 0;	// use low theta to effectively get direct solve
-	cstone::Box<scalar> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
+	cstone::Box<double> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
 
+	using keytype = uint64_t;
 	using acctype = cstone::GpuTag;
-	cstone::Domain<keytype, scalar, acctype> domain(
+	cstone::Domain<keytype, double, acctype> domain(
 		thisRank,
 		numRanks,
 		bucketSizeGlobal,
@@ -52,13 +51,13 @@ void Solvers::multipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar
 	);
 
 	thrust::device_vector<keytype> d_keys = std::vector<keytype>(numParticles);
-	thrust::device_vector<scalar>   s1, s2, s3; // scratch buffers for sorting, reordering, etc
+	thrust::device_vector<double>   s1, s2, s3; // scratch buffers for sorting, reordering, etc
 
-	thrust::device_vector<scalar> d_x = plist->d_x;
-	thrust::device_vector<scalar> d_y = plist->d_y;
-	thrust::device_vector<scalar> d_z = plist->d_z;
-	thrust::device_vector<scalar> d_h = plist->d_h;
-	thrust::device_vector<scalar> d_q = plist->d_q;
+	thrust::device_vector<double> d_x = plist->d_x;
+	thrust::device_vector<double> d_y = plist->d_y;
+	thrust::device_vector<double> d_z = plist->d_z;
+	thrust::device_vector<double> d_h = plist->d_h;
+	thrust::device_vector<double> d_q = plist->d_q;
 
 	thrust::device_vector<unsigned> d_tmpids;
 	plist->initRyoanjiIds(d_tmpids);	// TODO: this should not be a ParticleList method; d_tmpids should have a length of domain.nParticlesWithHalos()
@@ -77,18 +76,18 @@ void Solvers::multipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar
 		s1, s2
 	);
 
-	thrust::device_vector<scalar> d_ex = std::vector<scalar>(domain.nParticlesWithHalos());
-	thrust::device_vector<scalar> d_ey = std::vector<scalar>(domain.nParticlesWithHalos());
-	thrust::device_vector<scalar> d_ez = std::vector<scalar>(domain.nParticlesWithHalos());
+	thrust::device_vector<double> d_ex = std::vector<double>(domain.nParticlesWithHalos());
+	thrust::device_vector<double> d_ey = std::vector<double>(domain.nParticlesWithHalos());
+	thrust::device_vector<double> d_ez = std::vector<double>(domain.nParticlesWithHalos());
 
 	//! includes tree plus associated information, like nearby ranks, assignment, counts, MAC spheres, etc
-	const cstone::FocusedOctree<keytype, scalar, acctype>& focusTree = domain.focusTree();
+	const cstone::FocusedOctree<keytype, double, acctype>& focusTree = domain.focusTree();
 	//! the focused octree on GPU, structure only
 	auto octree = focusTree.octreeViewAcc();
 
 	constexpr int P = 4;
-	using multipoletype = ryoanji::SphericalMultipole<scalar, P>;
-	ryoanji::MultipoleHolder<scalar, scalar, scalar, scalar, scalar, keytype, multipoletype> multipoleHolder;
+	using multipoletype = ryoanji::SphericalMultipole<double, P>;
+	ryoanji::MultipoleHolder<double, double, double, double, double, keytype, multipoletype> multipoleHolder;
 
 	std::vector<multipoletype> multipoles(octree.numNodes);
 	auto grp = multipoleHolder.computeSpatialGroups(
@@ -158,22 +157,22 @@ void Solvers::multipoleGpu(chora::ParticleList* plist)//, scalar G = 1.0, scalar
 
 void Solvers::directGpu(chora::ParticleList* plist)
 {
-	std::array<scalar, 6> bounds = plist->getBounds();
-	cstone::Box<scalar> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
+	std::array<double, 6> bounds = plist->getBounds();
+	cstone::Box<double> box{bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]};
 
-	thrust::device_vector<scalar> d_x = plist->d_x;
-	thrust::device_vector<scalar> d_y = plist->d_y;
-	thrust::device_vector<scalar> d_z = plist->d_z;
-	thrust::device_vector<scalar> d_h = plist->d_h;
-	thrust::device_vector<scalar> d_q = plist->d_q;
+	thrust::device_vector<double> d_x = plist->d_x;
+	thrust::device_vector<double> d_y = plist->d_y;
+	thrust::device_vector<double> d_z = plist->d_z;
+	thrust::device_vector<double> d_h = plist->d_h;
+	thrust::device_vector<double> d_q = plist->d_q;
 
 	int numBodies = plist->size();
 	int numShells = 0;
 
-	thrust::device_vector<scalar> d_ex = std::vector<scalar>(numBodies);
-	thrust::device_vector<scalar> d_ey = std::vector<scalar>(numBodies);
-	thrust::device_vector<scalar> d_ez = std::vector<scalar>(numBodies);
-	thrust::device_vector<scalar> d_phi = std::vector<scalar>(numBodies);
+	thrust::device_vector<double> d_ex = std::vector<double>(numBodies);
+	thrust::device_vector<double> d_ey = std::vector<double>(numBodies);
+	thrust::device_vector<double> d_ez = std::vector<double>(numBodies);
+	thrust::device_vector<double> d_phi = std::vector<double>(numBodies);
 
 	ryoanji::directSum(0, numBodies, numBodies, {box.lx(), box.ly(), box.lz()}, numShells, rawPtr(d_x), rawPtr(d_y),
               rawPtr(d_z), rawPtr(d_q), rawPtr(d_h), rawPtr(d_phi), rawPtr(d_ex), rawPtr(d_ey), rawPtr(d_ez));
@@ -186,16 +185,16 @@ void Solvers::directGpu(chora::ParticleList* plist)
 	plist->correctRyoanjiField();
 }
 
-void Solvers::directCpu(chora::ParticleList* plist, scalar dmin)
+void Solvers::directCpu(chora::ParticleList* plist, double dmin)
 {
-	thrust::host_vector<scalar> h_x = plist->d_x;
-	thrust::host_vector<scalar> h_y = plist->d_y;
-	thrust::host_vector<scalar> h_z = plist->d_z;
-	thrust::host_vector<scalar> h_q = plist->d_q;
+	thrust::host_vector<double> h_x = plist->d_x;
+	thrust::host_vector<double> h_y = plist->d_y;
+	thrust::host_vector<double> h_z = plist->d_z;
+	thrust::host_vector<double> h_q = plist->d_q;
 
-	thrust::host_vector<scalar> h_ex(plist->size());
-	thrust::host_vector<scalar> h_ey(plist->size());
-	thrust::host_vector<scalar> h_ez(plist->size());
+	thrust::host_vector<double> h_ex(plist->size());
+	thrust::host_vector<double> h_ey(plist->size());
+	thrust::host_vector<double> h_ez(plist->size());
 
 	thrust::fill(h_ex.begin(), h_ex.end(), 0);
 	thrust::fill(h_ey.begin(), h_ey.end(), 0);
@@ -215,19 +214,19 @@ void Solvers::directCpu(chora::ParticleList* plist, scalar dmin)
 //		}
 		for (int j = 0; j < plist->size(); j++)	// source
 		{
-			scalar dx = h_x[i] - h_x[j];
-			scalar dy = h_y[i] - h_y[j];
-			scalar dz = h_z[i] - h_z[j];
-			scalar dr = sqrt(dx*dx + dy*dy + dz*dz);
+			double dx = h_x[i] - h_x[j];
+			double dy = h_y[i] - h_y[j];
+			double dz = h_z[i] - h_z[j];
+			double dr = sqrt(dx*dx + dy*dy + dz*dz);
 			dr = fmax(dr, dmin);
 			if (dr == 0)
 			{
 				continue;
 			}
-			scalar dr3 = dr*dr*dr;
-			scalar ex = h_q[j] * Constants::COULOMB  * dx / dr3;
-			scalar ey = h_q[j] * Constants::COULOMB  * dy / dr3;
-			scalar ez = h_q[j] * Constants::COULOMB  * dz / dr3;
+			double dr3 = dr*dr*dr;
+			double ex = h_q[j] * Constants::COULOMB  * dx / dr3;
+			double ey = h_q[j] * Constants::COULOMB  * dy / dr3;
+			double ez = h_q[j] * Constants::COULOMB  * dz / dr3;
 			h_ex[i] += ex;
 			h_ey[i] += ey;
 			h_ez[i] += ez;

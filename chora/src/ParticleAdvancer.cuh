@@ -3,7 +3,6 @@
 #pragma once
 
 #include <thrust/tuple.h>
-#include "scalar.h"
 #include "ParticleList.cuh"
 
 namespace chora
@@ -12,15 +11,15 @@ namespace chora
 class ParticleAdvancer
 {
 protected:
-	scalar dt;
+	double dt;
 
 public:
 
-	ParticleAdvancer(scalar dt);
+	ParticleAdvancer(double dt);
 
-	__host__ __device__ thrust::tuple<scalar,scalar,scalar,scalar,scalar,scalar> operator() (thrust::tuple<scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar,scalar> t);
+	__host__ __device__ thrust::tuple<double,double,double,double,double,double> operator() (thrust::tuple<double,double,double,double,double,double,double,double,double,double,double> t);
 
-	void apply(ParticleList* plist, scalar dt);
+	void apply(ParticleList* plist, double dt);
 };
 
 }
