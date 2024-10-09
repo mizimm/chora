@@ -73,7 +73,7 @@ void sphereTestElectronsProtons()
 	// constants
 	double dt = 1e-6;//5e-7;
 	double n0 = 5e6;
-	double np2c = 5e8;
+	double np2c = 1e6;
 	double radius = 50;
 	double vdx = 0;
 	double vdy = 0;
@@ -95,7 +95,7 @@ void sphereTestElectronsProtons()
 	Loaders::loadMaxwellianSphere(&fi, h, +Constants::QE, Constants::MP, np2c, 1, &plist, np, radius);
 	TOC(LOAD);
 
-//	std::cout << plist.size() << std::endl;
+	std::cout << plist.size() << std::endl;
 
 //	TIC(SOLVE);
 //	Solvers::multipoleGpu(&plist);

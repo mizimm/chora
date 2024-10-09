@@ -85,8 +85,9 @@ void Solvers::multipoleGpu(chora::ParticleList* plist)//, double G = 1.0, double
 	//! the focused octree on GPU, structure only
 	auto octree = focusTree.octreeViewAcc();
 
-	constexpr int P = 4;
-	using multipoletype = ryoanji::SphericalMultipole<double, P>;
+//	constexpr int P = 4;
+//	using multipoletype = ryoanji::SphericalMultipole<double, P>;
+	using multipoletype = ryoanji::CartesianQuadrupole<double>;
 	ryoanji::MultipoleHolder<double, double, double, double, double, keytype, multipoletype> multipoleHolder;
 
 	std::vector<multipoletype> multipoles(octree.numNodes);
