@@ -28,13 +28,14 @@ struct ParticleList
 
 	thrust::device_vector<unsigned> d_spid;
 
-	void test();
-
 	void add(thrust::device_vector<scalar>& d_x, thrust::device_vector<scalar>& d_y, thrust::device_vector<scalar>& d_z, scalar h, scalar q = 1, scalar m = 1, unsigned spid = 0);
 	void add(thrust::device_vector<scalar>& d_x, thrust::device_vector<scalar>& d_y, thrust::device_vector<scalar>& d_z, thrust::device_vector<scalar>& d_vx, thrust::device_vector<scalar>& d_vy, thrust::device_vector<scalar>& d_vz, scalar h, scalar q = 1, scalar m = 1, unsigned spid = 0);
 	uint64_t size();
 
-	void correctField();
+	// ryoanji-specific methods
+	void correctRyoanjiField();
+	void initRyoanjiIds(thrust::device_vector<unsigned>& d_tmpids);
+	void descrambleRyoanjiFieldComponents(thrust::device_vector<unsigned>& d_tmpids, thrust::device_vector<scalar>& d_ex, thrust::device_vector<scalar>& d_ey, thrust::device_vector<scalar>& d_ez);
 
 	std::array<scalar, 6> getBounds();
 };

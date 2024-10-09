@@ -4,6 +4,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/extrema.h>
+#include <thrust/sequence.h>
 
 #include "ParticleList.cuh"
 #include "Constants.h"
@@ -43,6 +44,7 @@ void ParticleList::add(thrust::device_vector<scalar>& d_x, thrust::device_vector
 	thrust::constant_iterator<unsigned> it_spid(spid);
 	this->d_spid.insert(this->d_spid.end(), it_spid, it_spid + np);
 }
+
 void ParticleList::add(thrust::device_vector<scalar>& d_x, thrust::device_vector<scalar>& d_y, thrust::device_vector<scalar>& d_z, scalar h, scalar q, scalar m, unsigned spid)
 {
 	int np = d_x.size();
@@ -52,7 +54,7 @@ void ParticleList::add(thrust::device_vector<scalar>& d_x, thrust::device_vector
 	add(d_x, d_y, d_z, d_vx, d_vy, d_vz, h, q, m, spid);
 }
 
-void ParticleList::correctField()
+void ParticleList::correctRyoanjiField()
 {
       thrust::constant_iterator<scalar> it_coulomb(-Constants::COULOMB);
       thrust::transform(d_ex.begin(), d_ex.end(), it_coulomb, d_ex.begin(), thrust::multiplies<scalar>());
@@ -86,4 +88,23 @@ std::array<scalar, 6> ParticleList::getBounds()
 	return {xmin, xmax, ymin, ymax, zmin, zmax};
 }
 
+void ParticleList::initRyoanjiIds(thrust::device_vector<unsigned>& d_tmpids)
+{
+	d_tmpids.resize(size());
+	thrust::sequence(d_tmpids.begin(), d_tmpids.end());
+}
+
+void ParticleList::descrambleRyoanjiFieldComponents(thrust::device_vector<unsigned>& d_tmpids, thrust::device_vector<scalar>& d_ex, thrust::device_vector<scalar>& d_ey, thrust::device_vector<scalar>& d_ez)
+{
+	// TODO: deal with dryoanji domain.startIndex() offset
+	thrust::scatter(d_ex.begin(), d_ex.end(), d_tmpids.begin(), this->d_ex.begin());
+	thrust::scatter(d_ey.begin(), d_ey.end(), d_tmpids.begin(), this->d_ey.begin());
+	thrust::scatter(d_ez.begin(), d_ez.end(), d_tmpids.begin(), this->d_ez.begin());
+}
+
+//    const auto* map  = d_id.data() + domain.startIndex();
+//    size_t numElements = domain.nParticles();
+//        chora::scatterGpu(map, numElements, d_ex.data() + domain.startIndex(), plist->d_ex.data() + domain.startIndex());
+//    chora::scatterGpu(map, numElements, d_ey.data() + domain.startIndex(), plist->d_ey.data() + domain.startIndex());
+//    chora::scatterGpu(map, numElements, d_ez.data() + domain.startIndex(), plist->d_ez.data() + domain.startIndex());
 }
