@@ -32,6 +32,7 @@ add_executable(chora-test
 	${CHORA_DIR}/ParticleAdvancer.cu
 	${CHORA_DIR}/ParticleList.cu
 	${CHORA_DIR}/Solvers.cpp
+	${CHORA_DIR}/Loaders.cpp
 	${CHORA_DIR}/util.cu
 )
 set_target_properties(chora-test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

@@ -1,6 +1,8 @@
 // © 2024 Mike Zimmerman, The Johns Hopkins University Applied Physics Laboratory LLC
 // © 2024 Sebastian Keller
 
+#pragma once
+
 #include "ParticleList.cuh"
 
 namespace chora
