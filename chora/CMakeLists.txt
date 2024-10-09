@@ -34,6 +34,7 @@ add_executable(chora-test
 	${CHORA_DIR}/Solvers.cpp
 	${CHORA_DIR}/Loaders.cpp
 	${CHORA_DIR}/util.cu
+	${CHORA_DIR}/tictoc.cpp
 )
 set_target_properties(chora-test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 

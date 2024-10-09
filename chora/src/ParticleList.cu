@@ -100,6 +100,12 @@ void ParticleList::descrambleRyoanjiFieldComponents(thrust::device_vector<unsign
 	thrust::scatter(d_ex.begin(), d_ex.end(), d_tmpids.begin(), this->d_ex.begin());
 	thrust::scatter(d_ey.begin(), d_ey.end(), d_tmpids.begin(), this->d_ey.begin());
 	thrust::scatter(d_ez.begin(), d_ez.end(), d_tmpids.begin(), this->d_ez.begin());
+
+//	thrust::scatter(d_x.begin(), d_x.end(), d_tmpids.begin(), this->d_x.begin());
+//	thrust::scatter(d_y.begin(), d_y.end(), d_tmpids.begin(), this->d_y.begin());
+//	thrust::scatter(d_z.begin(), d_z.end(), d_tmpids.begin(), this->d_z.begin());
+//	thrust::scatter(d_q.begin(), d_q.end(), d_tmpids.begin(), this->d_q.begin());
+//	thrust::scatter(d_h.begin(), d_h.end(), d_tmpids.begin(), this->d_h.begin());
 }
 
 //    const auto* map  = d_id.data() + domain.startIndex();

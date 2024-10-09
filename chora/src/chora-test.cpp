@@ -31,7 +31,6 @@
 
 #include <mpi.h>
 
-#include <chrono>
 #include <cmath>
 
 #include <thrust/device_vector.h>
@@ -46,24 +45,10 @@
 #include "Solvers.h"
 #include "Loaders.h"
 #include "util.cuh"
+#include "tictoc.h"
 
 namespace chora
 {
-
-std::chrono::time_point<std::chrono::high_resolution_clock> tic()
-{
-	return std::chrono::high_resolution_clock::now();
-}
-
-double toc(std::chrono::time_point<std::chrono::high_resolution_clock> starttime)	// get elapsed time in ms
-{
-        return std::chrono::duration_cast<std::chrono::milliseconds>(tic()-starttime).count();
-}
-
-std::string enumerateFilename(std::string prefix, int i, std::string extension)
-{
-	return prefix + "_" + std::to_string(i) + "." + extension;
-}
 
 /*void createSideInjectors(vector<QuadEmitter*>& injectors, const Box& bbox, const vector<BoxSide>& sides, Maxwellian* f, double n0, double np2c, double dnml)
 {
@@ -77,6 +62,11 @@ std::string enumerateFilename(std::string prefix, int i, std::string extension)
                 injectors.push_back(emitter);
         }
 }*/
+
+std::string enumerateFilename(std::string prefix, int i, std::string extension)
+{
+	return prefix + "_" + std::to_string(i) + "." + extension;
+}
 
 void sphereTestElectronsProtons()
 {
@@ -97,11 +87,19 @@ void sphereTestElectronsProtons()
 	double h = cbrt(spherevol/np);
 
 	// load particles
+	TIC(LOAD);
 	ParticleList plist;
 	Maxwellian fe(vdx, vdy, vdz, vthe);
 	Maxwellian fi(vdx, vdy, vdz, vthi);
 	Loaders::loadMaxwellianSphere(&fe, h, -Constants::QE, Constants::ME, np2c, 0, &plist, np, radius);
 	Loaders::loadMaxwellianSphere(&fi, h, +Constants::QE, Constants::MP, np2c, 1, &plist, np, radius);
+	TOC(LOAD);
+
+//	std::cout << plist.size() << std::endl;
+
+//	TIC(SOLVE);
+//	Solvers::multipoleGpu(&plist);
+//	TOC(SOLVE);
 
 	// run and save timesteps
 	int maxstep = 100;
@@ -124,6 +122,7 @@ void sphereTestElectronsProtons()
 		// advance
 		ParticleAdvancer(dt).apply(&plist, dt);
 	}
+
 }
 
 }
@@ -134,6 +133,9 @@ int main(int argc, char** argv)
 	int rank = 0, numRanks = 0;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &numRanks);
+
+//	double np2c = std::stod(argv[1]);
+//	chora::sphereTestElectronsProtons(np2c);
 
 	chora::sphereTestElectronsProtons();
 
